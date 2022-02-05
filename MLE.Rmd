@@ -1,0 +1,117 @@
+---
+title: "Maximum Likelihood Estimators"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Here is a numerical MLE procedure for estimating the parameter $\mu$ of the Borel distribution
+given by its p.m.f.
+\[{\sf P}(X=k)=\frac{e^{-\mu k}(\mu k)^{k-1}}{k!},\quad\mu\in[0,1],\quad k=1,2,3,\dots\]
+We will estimate $\mu$ in the following sample:
+\[X=\{1,4,1,2,10,1,1,6,1,15,2,6,2\}.\]
+```{r MLE1, echo=TRUE}
+library(stats4) # Library for mle
+N <- 13 # Sample size
+log_likelihood_borel_given_data <- function(mu) {
+  product <- 1
+  X <- c(1,4,1,2,10,1,1,6,1,15,2,6,2) #our data
+  for (x in X) {
+    product <- product * (exp(-1*mu*x)* (mu*x)^(x-1))/(factorial(x))
+  }
+  return(-1*log(product))
+}
+
+# MLE
+m <- mle(log_likelihood_borel_given_data,start=list(mu=0.01),nobs=integer(13),lower = 0.01,upper =1) #since mu is bounded between 0 and 1, but mu=0 -> infinity
+
+# MLE summary
+print(paste('The estimate for mu is:',unname(coef(m))))
+```
+
+We set up a numerical MLE procedure for estimating the parameter $\lambda$ of the Poisson distribution
+given by its p.m.f.
+\[{\sf P}(X=k)=\frac{\lambda^ke^{-\lambda}}{k!},\quad\lambda>0,\quad k=0,1,2,\dots\]
+Use it to estimate parameter $\lambda$ in $10,000$ samples of different sizes. 
+Find the sample size sufficient for the MLE to have a Normal distribution.
+Plot the estimated MLE variance as a function of sample size and try to estimate the 
+dependence of MLE variance on the sample size.
+[NB: This assignment needs to be done numerically.]
+```{r MLE2, echo=TRUE}
+library(stats4) # Library for mle
+#generate 10,000 samples of different sizes
+#choose the sample sizes
+sample_sizes <- floor(runif(10000,10,100)) #set sample sizes vary between 1 and 100
+variances <- list()
+i <- 1 #iterator for the above list of variances to be plotted
+j <- 1
+while (j <= 10000) { #for loop to run our MLE estimation on the 10,000 samples of varying sizes
+  lambda <- runif(1,0.1,0.9) #we will let lambda vary between 0.1 and 0.9
+  sample <- rpois(sample_sizes[j],lambda) #we will let lambda vary from 0.1 to 10
+  log_likelihood_poisson_given_data <- function(lambda) -sum(dpois(sample,lambda,log = TRUE))
+  # MLE
+  m <- mle(log_likelihood_poisson_given_data,start=list(lambda=0.01),method="L-BFGS-B",nobs=NROW(sample),lower = 0.01) #since lambda>0
+  variances[i] <- vcov(m)
+  i <- i + 1
+  j = j + 1
+
+}
+x <- seq(0, 100, 0.01)
+plot(sample_sizes[1:10000],as.numeric(variances),type='h',col='green',
+     main='Plot of MLE Variances vs Sample Sizes Ignoring Outliers for Nicer Fit',
+     xlab='Sample Sizes',ylab='MLE Variance', ylim=c(0,0.1))
+lines(sample_sizes[1:10000], 1/(sample_sizes[1:10000]), type="p", col="red")
+print("From experimentation, MLE Variance is inversely proportional to the sample size.")
+
+# Distribution of MLE (for Poisson distribution)
+m<-0
+for (i in seq(1,1000)){
+  X <- rpois(100,0.5) #experiment with the value
+  logL <- function(lambda) -sum(dpois(X,lambda,log=TRUE))
+  m[i] <- coef(mle(logL,start=list(lambda=.3),method="L-BFGS-B",nobs=NROW(X),lower = 0.01))
+}
+hist(m,breaks=20,
+  main='MLE histogram',xlab='Parameter lambda',ylab='No. samples')
+grid()
+
+qqnorm(m,pch=19,col='blue')
+qqline(m,col='red')
+grid()
+print("From experimentation, MLE normality is sufficiently nice at 100 samples. At 50 samples, the histogram may not resemble a normal graph but the Q-Q plot will still be straight. At 25 samples this situation holds, but any less than 15 and there will be strong tail deviations. ")
+
+```
+
+We set up a numerical MLE procedure for estimating the parameters $\mu$ and $k$ of the von Mises distribution
+given by its p.d.f.
+\[f(x|\mu,k) = \frac{e^{k\cos(x-\mu)}}{2\pi I_0(k)},\quad \mu\in\mathbb{R},k>0,\quad x\in[-\pi,\pi],\]
+where $I_0(x)$ is the modified Bessel function of order $0$:
+
+<span style="font-family:Courier;">
+> BesselI(x,0)
+</span>
+
+Estimate the model parameters in the sample
+\[X = \{-2.14, -0.17, 0.23, 0.01, -0.05, 1.37, 0.13, -0.15\}.\]
+```{r MLE3, echo=TRUE}
+library(stats4) # Library for mle
+N <- 13 # Sample size
+log_likelihood_vonMises_given_data <- function(theta) {
+  product <- 1
+  X <- c(-2.14,-0.17,0.23,0.01,-0.05,1.37,0.13,-0.15) #our data
+  for (x in X) {
+    mu <- theta[1]
+    k <- theta[2]
+    product <- product * (exp(k*cos(x-mu)))/(2*pi*(besselI(k,0)))
+  }
+  return(-1*log(product))
+}
+opt <-optim(c(0,1),log_likelihood_vonMises_given_data)
+opt$par
+```
+
+
+
